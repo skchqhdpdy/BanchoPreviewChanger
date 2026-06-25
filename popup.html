@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: 'Malgun Gothic', sans-serif; width: 250px; padding: 15px; }
+    h3 { margin-top: 0; font-size: 16px; color: #ff66aa; }
+    label { font-size: 12px; color: #555; display: block; margin-bottom: 5px; }
+    input { width: 100%; padding: 8px; box-sizing: border-box; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+    button { width: 100%; padding: 8px; background-color: #ff66aa; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    button:hover { background-color: #ff4499; }
+    #status { margin-top: 10px; font-size: 12px; color: green; text-align: center; height: 15px; }
+  </style>
+</head>
+<body>
+  <h3>🎵 미리듣기 HTML 수정기</h3>
+  <label for="hostInput">서버 주소 (기본: b.redstar.moe)</label>
+  <input type="text" id="hostInput" placeholder="b.redstar.moe">
+  <button id="saveBtn">저장하기</button>
+  <div id="status"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

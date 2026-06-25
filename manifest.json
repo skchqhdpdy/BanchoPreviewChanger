@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "osu! Preview HTML Modifier",
+  "version": "1.0",
+  "description": "오스 공식 홈페이지의 미리듣기 버튼 HTML을 찾아 지정된 주소로 직접 수정합니다.",
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://osu.ppy.sh/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "/images/icon-16.png",
+    "32": "/images/icon-32.png",
+    "48": "/images/icon-48.png",
+    "64": "/images/icon-64.png",
+    "128": "/images/icon-128.png"
+  }
+}
