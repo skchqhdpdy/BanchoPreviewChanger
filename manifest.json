@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "osu! Preview HTML Modifier",
-  "version": "1.1",
+  "version": "1.2",
   "description": "오스 공식 홈페이지의 미리듣기 버튼 HTML을 찾아 지정된 주소로 직접 수정합니다.",
   "permissions": [
     "storage"
@@ -10,7 +10,7 @@
     {
       "matches": ["*://osu.ppy.sh/*"],
       "js": ["content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_end"
     }
   ],
   "action": {
