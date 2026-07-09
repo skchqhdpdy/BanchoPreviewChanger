@@ -21,7 +21,7 @@ chrome.storage.local.get({ customHost: 'b.redstar.moe' }, (result) => {
       .catch((err) => console.error(`[BanchoPreviewChanger|확장프로그램] 요청 실패: ${url}`, err));
   }
 
-  // HTML 내의 요소들을 찾아 주소를 바꾸는 핵심 함수
+  // 미리듣기 오디오 URL 치환 함수
   function replaceAllBppy() {
     // 1. 재생 버튼의 data-audio-url 속성 변경
     const buttons = document.querySelectorAll('button[data-audio-url*="b.ppy.sh"]');
@@ -32,19 +32,16 @@ chrome.storage.local.get({ customHost: 'b.redstar.moe' }, (result) => {
       btn.setAttribute('data-audio-url', newUrl);
       console.log(`[BanchoPreviewChanger|확장프로그램] (Audio) ${oldUrl} 주소를 ${newUrl} 로 변경 완료했습니다.`);
 
-      // 변경 직후 해당 주소로 미리 요청 보내기
       prefetchAudio(newUrl);
     });
 
-    // 2. JSON 데이터가 들어있는 <script> 내부 텍스트 변경
-    // 개별 비트맵 페이지('json-beatmapset') 및 검색/목록 페이지('json-beatmaps') 모두 대응
+    // 2. JSON 데이터 변경
     const jsonScriptIds = ['json-beatmapset', 'json-beatmaps'];
     
     jsonScriptIds.forEach(id => {
       const jsonScript = document.getElementById(id);
       if (jsonScript && jsonScript.textContent.includes('b.ppy.sh')) {
 
-        // URL 추출 정규식
         const urlRegex = /https:\\\/\\\/b\.ppy\.sh[A-Za-z0-9\\/\.\-\_]+/g;
         const matchedUrls = jsonScript.textContent.match(urlRegex);
 
@@ -53,51 +50,103 @@ chrome.storage.local.get({ customHost: 'b.redstar.moe' }, (result) => {
 
           matchedUrls.forEach(oldUrlEscaped => {
             const newUrlEscaped = oldUrlEscaped.replace('b.ppy.sh', targetHost);
-
             const cleanOld = oldUrlEscaped.replace(/\\\//g, '/');
             const cleanNew = newUrlEscaped.replace(/\\\//g, '/');
 
             console.log(`[BanchoPreviewChanger|확장프로그램] (JSON - ${id}) ${cleanOld} 주소를 ${cleanNew} 로 변경 완료했습니다.`);
 
-            // JSON 내부에서 찾은 URL도 미리 요청 보내기
             prefetchAudio(cleanNew);
 
-            // 텍스트 치환
             newText = newText.replace(oldUrlEscaped, newUrlEscaped);
           });
           
-          // 변경된 텍스트를 다시 DOM에 적용
           jsonScript.textContent = newText;
         }
       }
     });
   }
 
-  // 1. 스크립트 로드 시 최초 1회 실행
-  replaceAllBppy();
+  // 🌟 새롭게 추가된 osu!direct 가로채기 함수
+  function fixOsuDirectButton() {
+    // 버튼 요소들 찾기
+    const directBtns = document.querySelectorAll('a.btn-osu-big--beatmapset-header');
+    
+    directBtns.forEach(btn => {
+      // 텍스트가 'osu!direct'인 버튼만 타겟팅
+      if (btn.textContent.includes('osu!direct')) {
+        let bid = null;
+        
+        // 1. 활성화된 난이도 아이콘(DOM)에서 bid 추출 (예: href="#osu/1831285")
+        const activeDiff = document.querySelector('.beatmapset-beatmap-picker__beatmap--active');
+        if (activeDiff) {
+          const hrefMatch = activeDiff.getAttribute('href').match(/#(?:.*\/)?([0-9]+)/);
+          if (hrefMatch && hrefMatch[1]) {
+            bid = hrefMatch[1];
+          }
+        }
+        
+        // 2. 만약 활성 아이콘을 못 찾았다면, 현재 브라우저 URL의 Hash에서 추출
+        if (!bid) {
+          const hashMatch = window.location.hash.match(/#(?:.*\/)?([0-9]+)/);
+          if (hashMatch && hashMatch[1]) {
+            bid = hashMatch[1];
+          }
+        }
 
-  // 2. 스크롤을 내리거나 페이지 변경으로 인해 새로 생겨나는 버튼에 대응 (DOM 변화 감지)
+        // bid를 찾았다면 주소를 치환
+        if (bid) {
+          const newHref = `osu://b/${bid}`;
+          
+          // 이미 바뀐 상태면 무시 (무한루프 방지)
+          if (btn.getAttribute('href') !== newHref) {
+            btn.setAttribute('href', newHref);
+            
+            // React의 내부 라우팅 동작이 가로채서 기부 페이지로 강제 이동하는 것을 방지
+            btn.onclick = (e) => e.stopPropagation(); 
+            
+            console.log(`[BanchoPreviewChanger|확장프로그램] osu!direct 링크를 ${newHref} 로 변경 완료했습니다.`);
+          }
+        }
+      }
+    });
+  }
+
+  // 두 가지 변경 작업을 한 번에 실행하는 함수
+  function runAllModifiers() {
+    replaceAllBppy();
+    fixOsuDirectButton();
+  }
+
+  // 1. 스크립트 로드 시 최초 1회 실행
+  runAllModifiers();
+
+  // 2. 난이도를 변경할 때 URL의 Hash(#)가 바뀌는 것을 감지하여 버튼 주소 즉시 갱신
+  window.addEventListener('hashchange', () => {
+    // React가 DOM을 그릴 시간을 살짝 주기 위해 타이머 사용
+    setTimeout(fixOsuDirectButton, 50);
+  });
+
+  // 3. 스크롤 및 동적 페이지 로딩 대응 (DOM 변화 감지)
   const observer = new MutationObserver((mutations) => {
-    // 성능을 위해 추가된 노드가 있을 때만 함수 실행
-    let hasNewNodes = false;
+    let shouldRun = false;
     for (const mutation of mutations) {
       if (mutation.addedNodes.length > 0 || mutation.type === 'attributes') {
-        hasNewNodes = true;
+        shouldRun = true;
         break;
       }
     }
     
-    if (hasNewNodes) {
-      replaceAllBppy();
+    if (shouldRun) {
+      runAllModifiers();
     }
   });
 
-  // body 태그 내의 모든 자식 요소와 속성 변화를 실시간으로 감시
+  // 이제 전체 HTML 문서를 감시하며 href, class(난이도 전환) 속성 변화까지 잡아냅니다.
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
     attributes: true, 
-    attributeFilter: ['data-audio-url'] 
+    attributeFilter: ['data-audio-url', 'href', 'class'] 
   });
 
 });
